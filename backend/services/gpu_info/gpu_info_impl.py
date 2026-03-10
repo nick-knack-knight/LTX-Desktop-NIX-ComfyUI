@@ -9,8 +9,6 @@ import subprocess
 import sys
 from typing import Protocol, cast
 
-import torch
-
 from services.gpu_info.gpu_info import GpuTelemetryPayload
 
 logger = logging.getLogger(__name__)
@@ -89,6 +87,7 @@ class GpuInfoImpl:
 
     def get_cuda_available(self) -> bool:
         try:
+            import torch  # lazy
             return bool(torch.cuda.is_available())
         except Exception:
             logger.warning("Failed to query CUDA availability", exc_info=True)
@@ -96,6 +95,7 @@ class GpuInfoImpl:
 
     def get_mps_available(self) -> bool:
         try:
+            import torch  # lazy
             return bool(hasattr(torch.backends, "mps") and torch.backends.mps.is_available())
         except Exception:
             logger.warning("Failed to query MPS availability", exc_info=True)
@@ -107,6 +107,7 @@ class GpuInfoImpl:
     def get_device_name(self) -> str | None:
         if self.get_cuda_available():
             try:
+                import torch  # lazy
                 return str(torch.cuda.get_device_name(0))
             except Exception:
                 logger.warning("Failed to query CUDA device name", exc_info=True)
@@ -121,6 +122,7 @@ class GpuInfoImpl:
     def get_vram_total_gb(self) -> int | None:
         if self.get_cuda_available():
             try:
+                import torch  # lazy
                 properties = cast(
                     _CudaDeviceProperties,
                     torch.cuda.get_device_properties(0),  # type: ignore[reportUnknownMemberType]

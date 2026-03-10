@@ -7,7 +7,8 @@ from pathlib import Path
 from threading import RLock
 from typing import TYPE_CHECKING
 
-import torch
+if TYPE_CHECKING:
+    import torch
 
 from handlers.base import StateHandlerBase
 from handlers.text_handler import TextHandler
