@@ -6,15 +6,24 @@ import logging
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, BinaryIO, Protocol, TypeAlias
 
-import torch
 from PIL.Image import Image as PILImage
 
 if TYPE_CHECKING:
+    import torch
     import numpy as np
     from numpy.typing import NDArray
 
     from ltx_core.model.video_vae import TilingConfig
+    from ltx_core.types import Audio as AudioType
 
+    TensorType: TypeAlias = torch.Tensor
+    FrameArray: TypeAlias = NDArray[np.uint8]
+    TilingConfigType: TypeAlias = TilingConfig
+else:
+    TensorType = object
+    FrameArray: TypeAlias = object
+    TilingConfigType: TypeAlias = object
+    AudioType: TypeAlias = object
 
 JSONScalar: TypeAlias = str | int | float | bool | None
 JSONValue: TypeAlias = JSONScalar | list["JSONValue"] | dict[str, "JSONValue"]
@@ -22,18 +31,7 @@ RequestFieldValue: TypeAlias = str | bytes | int | float | bool | None
 RequestData: TypeAlias = bytes | str | Mapping[str, RequestFieldValue] | BinaryIO | None
 PromptInput: TypeAlias = str | Sequence[str]
 
-TensorType: TypeAlias = torch.Tensor
 PILImageType: TypeAlias = PILImage
-
-if TYPE_CHECKING:
-    from ltx_core.types import Audio as AudioType
-
-    FrameArray: TypeAlias = NDArray[np.uint8]
-    TilingConfigType: TypeAlias = TilingConfig
-else:
-    FrameArray: TypeAlias = object
-    TilingConfigType: TypeAlias = object
-    AudioType: TypeAlias = object
 
 TensorOrNone: TypeAlias = TensorType | None
 AudioOrNone: TypeAlias = AudioType | None
@@ -51,6 +49,7 @@ def get_device_type(device: str | torch.device | object | None) -> str:
 
     if isinstance(device, str):
         try:
+            import torch  # lazy: only needed when device is a plain string
             return str(torch.device(device).type)
         except Exception:
             logger.warning("Could not parse device string '%s', using it as-is", device, exc_info=True)
@@ -67,14 +66,17 @@ def sync_device(device: str | torch.device | object | None) -> None:
     device_type = get_device_type(device)
     if device_type == "cuda":
         try:
+            import torch  # lazy
             torch.cuda.synchronize()
         except Exception:
             logger.warning("torch.cuda.synchronize() failed", exc_info=True)
         return
 
-    if device_type == "mps" and hasattr(torch, "mps"):
+    if device_type == "mps":
         try:
-            torch.mps.synchronize()
+            import torch  # lazy
+            if hasattr(torch, "mps"):
+                torch.mps.synchronize()
         except Exception:
             logger.warning("torch.mps.synchronize() failed", exc_info=True)
 
@@ -83,14 +85,17 @@ def empty_device_cache(device: str | torch.device | object | None) -> None:
     device_type = get_device_type(device)
     if device_type == "cuda":
         try:
+            import torch  # lazy
             torch.cuda.empty_cache()
         except Exception:
             logger.warning("torch.cuda.empty_cache() failed", exc_info=True)
         return
 
-    if device_type == "mps" and hasattr(torch, "mps"):
+    if device_type == "mps":
         try:
-            torch.mps.empty_cache()
+            import torch  # lazy
+            if hasattr(torch, "mps"):
+                torch.mps.empty_cache()
         except Exception:
             logger.warning("torch.mps.empty_cache() failed", exc_info=True)
 

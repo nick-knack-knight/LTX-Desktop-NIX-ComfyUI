@@ -274,7 +274,8 @@ class VideoGenerationHandler(StateHandlerBase):
             # Persist image to a temp file so ComfyUI can reference it.
             image_path: str | None = None
             if image is not None:
-                temp_image_path = tempfile.NamedTemporaryFile(suffix=".png", delete=False).name
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
+                    temp_image_path = tf.name
                 image.save(temp_image_path)
                 image_path = temp_image_path
 
@@ -314,8 +315,8 @@ class VideoGenerationHandler(StateHandlerBase):
                 return GenerateVideoResponse(status="cancelled")
             raise HTTPError(500, str(e)) from e
         finally:
-            if temp_image_path and os.path.exists(temp_image_path):
-                os.unlink(temp_image_path)
+            if temp_image_path:
+                Path(temp_image_path).unlink(missing_ok=True)
 
     def _generate_a2v(
         self, req: GenerateVideoRequest, duration: int, fps: int, *, audio_path: str

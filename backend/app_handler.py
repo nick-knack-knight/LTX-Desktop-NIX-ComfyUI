@@ -306,3 +306,151 @@ def build_initial_state(
         retake_pipeline_class=bundle.retake_pipeline_class,
         ic_lora_model_downloader=bundle.ic_lora_model_downloader,
     )
+
+
+# ---------------------------------------------------------------------------
+# No-op stubs for ML pipeline classes — used in ComfyUI mode where all
+# inference is handled remotely.  These classes satisfy the Protocol
+# interfaces at the structural level; none of them are ever instantiated
+# (create() raises NotImplementedError) because the ComfyUI generation path
+# bypasses the local pipeline loader entirely.
+# ---------------------------------------------------------------------------
+
+class _NoopGpuCleaner:
+    def cleanup(self) -> None:
+        pass
+
+
+class _NoopTextEncoder:
+    def install_patches(self, state_getter: object) -> None:  # type: ignore[override]
+        pass
+
+    def encode_via_api(  # type: ignore[override]
+        self,
+        prompt: str,
+        api_key: str,
+        checkpoint_path: str,
+        enhance_prompt: bool,
+    ) -> object:
+        return None
+
+
+def _noop_pipeline_create(*args: object, **kwargs: object) -> object:
+    raise NotImplementedError("Local ML pipeline not available in ComfyUI mode")
+
+
+class _NoopFastVideoPipeline:
+    pipeline_kind = "fast"
+
+    @staticmethod
+    def create(  # type: ignore[override]
+        checkpoint_path: str,
+        gemma_root: str | None,
+        upsampler_path: str,
+        device: object,
+    ) -> "_NoopFastVideoPipeline":
+        raise NotImplementedError("Local LTX pipeline not available in ComfyUI mode")
+
+    def generate(self, **_kwargs: object) -> None:  # type: ignore[override]
+        raise NotImplementedError("Local LTX pipeline not available in ComfyUI mode")
+
+    def warmup(self, output_path: str) -> None:
+        pass
+
+    def compile_transformer(self) -> None:
+        pass
+
+
+class _NoopA2VPipeline:
+    @staticmethod
+    def create(  # type: ignore[override]
+        checkpoint_path: str,
+        gemma_root: str | None,
+        upsampler_path: str,
+        device: object,
+    ) -> "_NoopA2VPipeline":
+        raise NotImplementedError("Local A2V pipeline not available in ComfyUI mode")
+
+    def generate(self, **_kwargs: object) -> None:  # type: ignore[override]
+        raise NotImplementedError("Local A2V pipeline not available in ComfyUI mode")
+
+
+class _NoopImageGenerationPipeline:
+    @staticmethod
+    def create(model_path: str, device: object = None) -> "_NoopImageGenerationPipeline":  # type: ignore[override]
+        raise NotImplementedError("Local image pipeline not available in ComfyUI mode")
+
+    def generate(self, **_kwargs: object) -> object:  # type: ignore[override]
+        raise NotImplementedError("Local image pipeline not available in ComfyUI mode")
+
+    def to(self, device: str) -> None:
+        pass
+
+
+class _NoopIcLoraPipeline:
+    @staticmethod
+    def create(  # type: ignore[override]
+        checkpoint_path: str,
+        gemma_root: str | None,
+        upsampler_path: str,
+        lora_path: str,
+        device: object,
+    ) -> "_NoopIcLoraPipeline":
+        raise NotImplementedError("Local IC-LoRA pipeline not available in ComfyUI mode")
+
+    def generate(self, **_kwargs: object) -> None:  # type: ignore[override]
+        raise NotImplementedError("Local IC-LoRA pipeline not available in ComfyUI mode")
+
+
+class _NoopRetakePipeline:
+    @staticmethod
+    def create(  # type: ignore[override]
+        checkpoint_path: str,
+        gemma_root: str | None,
+        device: object,
+        *,
+        loras: object = None,
+        quantization: object = None,
+    ) -> "_NoopRetakePipeline":
+        raise NotImplementedError("Local retake pipeline not available in ComfyUI mode")
+
+    def generate(self, **_kwargs: object) -> None:  # type: ignore[override]
+        raise NotImplementedError("Local retake pipeline not available in ComfyUI mode")
+
+
+def build_comfyui_service_bundle(config: RuntimeConfig) -> ServiceBundle:
+    """Build services for ComfyUI mode — no torch or local GPU required.
+
+    Real network/IO services are used as-is.  Local ML pipeline classes are
+    replaced with no-op stubs that raise NotImplementedError if somehow
+    called; in practice they are never instantiated because
+    _generate_comfyui() bypasses the local pipeline loader.
+    """
+    from services.http_client.http_client_impl import HTTPClientImpl
+    from services.ic_lora_model_downloader.ic_lora_model_downloader_impl import IcLoraModelDownloaderImpl
+    from services.ltx_api_client.ltx_api_client_impl import LTXAPIClientImpl
+    from services.model_downloader.hugging_face_downloader import HuggingFaceDownloader
+    from services.gpu_info.gpu_info_impl import GpuInfoImpl
+    from services.task_runner.threading_runner import ThreadingRunner
+    from services.video_processor.video_processor_impl import VideoProcessorImpl
+    from services.zit_api_client.zit_api_client_impl import ZitAPIClientImpl
+
+    http = HTTPClientImpl()
+
+    return ServiceBundle(
+        http=http,
+        gpu_cleaner=_NoopGpuCleaner(),  # type: ignore[arg-type]
+        model_downloader=HuggingFaceDownloader(),
+        gpu_info=GpuInfoImpl(),
+        video_processor=VideoProcessorImpl(),
+        text_encoder=_NoopTextEncoder(),  # type: ignore[arg-type]
+        task_runner=ThreadingRunner(),
+        ltx_api_client=LTXAPIClientImpl(http=http, ltx_api_base_url=config.ltx_api_base_url),
+        zit_api_client=ZitAPIClientImpl(http=http),
+        fast_video_pipeline_class=_NoopFastVideoPipeline,  # type: ignore[arg-type]
+        image_generation_pipeline_class=_NoopImageGenerationPipeline,  # type: ignore[arg-type]
+        ic_lora_pipeline_class=_NoopIcLoraPipeline,  # type: ignore[arg-type]
+        a2v_pipeline_class=_NoopA2VPipeline,  # type: ignore[arg-type]
+        retake_pipeline_class=_NoopRetakePipeline,  # type: ignore[arg-type]
+        ic_lora_model_downloader=IcLoraModelDownloaderImpl(),
+    )
