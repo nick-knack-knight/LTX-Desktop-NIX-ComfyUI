@@ -1,0 +1,33 @@
+# LTX Desktop — ComfyUI edition
+# ML inference is handled by ComfyUI; torch and the LTX model packages are
+# intentionally absent from this file.
+
+# Web framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
+# Data / validation
+pydantic>=2.7.0
+
+# HTTP client (used by HTTPClientImpl, LTX API fallback, and ComfyUI calls)
+requests>=2.31.0
+
+# Image handling (I2V conditioning image prep)
+pillow>=10.3.0
+
+# Video processing (VideoProcessorImpl — timeline editor, frame extraction)
+opencv-python-headless>=4.8.0
+
+# Model download UI (HuggingFaceDownloader is still wired; downloads are
+# user-initiated and optional in ComfyUI mode)
+huggingface-hub>=0.23.0
+tqdm>=4.66.0
+
+# GPU info / health endpoint (lazy-imported; harmless if CUDA absent)
+pynvml>=11.5.0; sys_platform != "darwin"
+
+# ---------------------------------------------------------------------------
+# ComfyUI integration — add any extra packages your workflow client needs
+# below this line (e.g. websockets for async queue polling).
+# ---------------------------------------------------------------------------
