@@ -15,17 +15,18 @@ function getModelsPath(): string {
 }
 
 function getSetupStatus(settingsPath: string): { needsSetup: boolean; needsLicense: boolean } {
+  // ComfyUI edition: model download/location setup is handled by ComfyUI — always skip it.
   if (!fs.existsSync(settingsPath)) {
-    return { needsSetup: true, needsLicense: true }
+    return { needsSetup: false, needsLicense: true }
   }
   try {
     const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'))
     return {
-      needsSetup: !settings.setupComplete,
+      needsSetup: false,
       needsLicense: !settings.licenseAccepted,
     }
   } catch {
-    return { needsSetup: true, needsLicense: true }
+    return { needsSetup: false, needsLicense: true }
   }
 }
 
