@@ -34,6 +34,7 @@ interface Window {
     getDownloadsPath: () => Promise<string>
     copyToProjectAssets: (srcPath: string, projectId: string) => Promise<{ success: boolean; path?: string; url?: string; error?: string }>
     getProjectAssetsPath: () => Promise<string>
+    downloadToProjectAssets: (url: string, projectId: string, fileName: string) => Promise<{ success: boolean; path?: string; url?: string; error?: string }>
     setProjectAssetsPath: (newPath: string) => Promise<{ success: boolean; error?: string }>
     showSaveDialog: (options: { title?: string; defaultPath?: string; filters?: { name: string; extensions: string[] }[] }) => Promise<string | null>
     saveFile: (filePath: string, data: string, encoding?: string) => Promise<{ success: boolean; path?: string; error?: string }>

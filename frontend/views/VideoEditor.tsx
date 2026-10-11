@@ -20,6 +20,7 @@ import { useAppSettings } from '../contexts/AppSettingsContext'
 import { useGeneration } from '../hooks/use-generation'
 import { Button } from '../components/ui/button'
 import { logger } from '../lib/logger'
+import { fileUrlToPath } from '../lib/url-to-path'
 import { Tooltip } from '../components/ui/tooltip'
 import { ExportModal } from '../components/ExportModal'
 import { MenuBar, type MenuDefinition } from '../components/MenuBar'
@@ -46,6 +47,7 @@ import { SubtitlePropertiesPanel } from './editor/SubtitlePropertiesPanel'
 import { SourceMonitor } from './editor/SourceMonitor'
 import { ProgramMonitor } from './editor/ProgramMonitor'
 import { useUndoRedo } from './editor/useUndoRedo'
+import { useStoryboardSync } from './editor/useStoryboardSync'
 import { useEditorKeyboard } from './editor/useEditorKeyboard'
 import { useGapGeneration } from './editor/useGapGeneration'
 import { useRegeneration } from './editor/useRegeneration'
@@ -77,8 +79,7 @@ export function VideoEditor() {
     addTakeToAsset, deleteTakeFromAsset, setAssetActiveTake,
     addTimeline, deleteTimeline, renameTimeline, duplicateTimeline,
     setActiveTimeline, updateTimeline, getActiveTimeline,
-    setCurrentTab, setGenSpaceEditImageUrl, setGenSpaceEditMode, setGenSpaceAudioUrl,
-    setGenSpaceRetakeSource, pendingRetakeUpdate, setPendingRetakeUpdate,
+    setCurrentTab, pendingRetakeUpdate, setPendingRetakeUpdate,
   } = useProjects()
 
   const { activeLayout: kbLayout, isEditorOpen: isKbEditorOpen, setEditorOpen: setKbEditorOpen } = useKeyboardShortcuts()
@@ -1031,6 +1032,13 @@ export function VideoEditor() {
     splitClipAtPlayhead, setSelectedSubtitleId, setSelectedGap,
     audioTrackHeight, videoTrackHeight, subtitleTrackHeight,
   })
+
+  // Storyboard (Video Director) ↔ timeline sync (extracted hook)
+  const { createCutFromClip, persistFrame, revealCut } = useStoryboardSync({
+    clips, setClips, tracks, assets, currentProject, activeTimelineId,
+    addAsset, updateAsset, pushUndo,
+    isInteracting: !!draggingClip || !!resizingClip || !!slipSlideClip,
+  })
   
   // Keyboard shortcuts - uses refs to avoid ordering issues with useCallback
   const activePanelRef = useRef(activePanel)
@@ -1484,22 +1492,22 @@ export function VideoEditor() {
     }
   }, [currentTime, resolveClipSrc])
 
-  // Capture a frame and send to Gen Space for video generation (I2V)
+  // Capture a frame and start a new storyboard cut from it (I2V source image)
   const handleCaptureFrameForVideo = useCallback(async (clip: TimelineClip) => {
-    const dataUrl = await extractCurrentFrame(clip)
-    if (!dataUrl) return
-    setGenSpaceEditMode('video')
-    setGenSpaceEditImageUrl(dataUrl)
-    setCurrentTab('gen-space')
-  }, [extractCurrentFrame, setGenSpaceEditImageUrl, setGenSpaceEditMode, setCurrentTab])
+    const frameUrl = await extractCurrentFrame(clip)
+    if (!frameUrl) return
+    const framePath = await persistFrame(frameUrl)
+    if (!framePath) return
+    if (await createCutFromClip(clip, { source_image: framePath })) setCurrentTab('storyboard')
+  }, [extractCurrentFrame, persistFrame, createCutFromClip, setCurrentTab])
 
-  // Navigate to Gen Space with audio pre-populated for A2V
-  const handleCreateVideoFromAudio = useCallback((clip: TimelineClip) => {
+  // Start a new storyboard cut driven by this clip's audio (A2V)
+  const handleCreateVideoFromAudio = useCallback(async (clip: TimelineClip) => {
     const asset = clip.assetId ? assets.find(a => a.id === clip.assetId) : null
-    if (!asset?.url) return
-    setGenSpaceAudioUrl(asset.url)
-    setCurrentTab('gen-space')
-  }, [assets, setGenSpaceAudioUrl, setCurrentTab])
+    const audioPath = asset?.path || (asset?.url ? fileUrlToPath(asset.url) : null)
+    if (!audioPath) return
+    if (await createCutFromClip(clip, { audio_file: audioPath, audio_start: clip.trimStart })) setCurrentTab('storyboard')
+  }, [assets, createCutFromClip, setCurrentTab])
 
   // Get the live asset for a clip (from project context, not stale clip.asset)
   const getLiveAsset = useCallback((clip: TimelineClip) => {
@@ -1507,32 +1515,10 @@ export function VideoEditor() {
     return assets.find(a => a.id === clip.assetId) || clip.asset
   }, [assets])
 
+  // Retake: storyboard clips jump to their cut (generate another take there)
   const handleRetakeClip = useCallback((clip: TimelineClip) => {
-    const liveAsset = getLiveAsset(clip)
-    if (!liveAsset) return
-
-    const takeIndex = clip.takeIndex ?? liveAsset.activeTakeIndex
-    let takePath = liveAsset.path
-    let takeUrl = liveAsset.url
-    if (liveAsset.takes && liveAsset.takes.length > 0 && takeIndex !== undefined) {
-      const idx = Math.max(0, Math.min(takeIndex, liveAsset.takes.length - 1))
-      takePath = liveAsset.takes[idx].path
-      takeUrl = liveAsset.takes[idx].url
-    }
-
-    const linkedIds = new Set(clip.linkedClipIds || [])
-    linkedIds.add(clip.id)
-
-    setGenSpaceRetakeSource({
-      videoUrl: takeUrl,
-      videoPath: takePath,
-      clipId: clip.id,
-      assetId: liveAsset.id,
-      linkedClipIds: [...linkedIds],
-      duration: clip.duration || liveAsset.duration,
-    })
-    setCurrentTab('gen-space')
-  }, [getLiveAsset, setGenSpaceRetakeSource, setCurrentTab])
+    if (clip.storyboardCutId && revealCut(clip.storyboardCutId)) setCurrentTab('storyboard')
+  }, [revealCut, setCurrentTab])
 
   useEffect(() => {
     if (!pendingRetakeUpdate) return
@@ -3202,8 +3188,8 @@ export function VideoEditor() {
                                   <RefreshCw className={`h-3 w-3 ${clip.isRegenerating ? 'animate-spin' : ''}`} />
                                 </button>
                               </Tooltip>
-                              {clip.type === 'video' && (
-                                <Tooltip content="Retake section" side="top">
+                              {clip.type === 'video' && clip.storyboardCutId && (
+                                <Tooltip content="Open cut in Storyboard" side="top">
                                   <button
                                     onClick={() => handleRetakeClip(clip)}
                                     className="p-0.5 rounded transition-colors hover:bg-white/10 text-zinc-500 hover:text-blue-400"

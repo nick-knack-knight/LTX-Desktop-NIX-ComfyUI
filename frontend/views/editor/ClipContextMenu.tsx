@@ -521,8 +521,10 @@ function SingleClipMenu({
           )}
           {isVideo && contextClip.assetId && (
             <>
-              <MenuItem icon={Film} iconClass="text-blue-400" label="Retake Section"
-                onClick={() => { onRetakeClip(contextClip); close() }} />
+              {contextClip.storyboardCutId && (
+                <MenuItem icon={Film} iconClass="text-blue-400" label="Open Cut in Storyboard"
+                  onClick={() => { onRetakeClip(contextClip); close() }} />
+              )}
               {/* IC-LORA HIDDEN - IC-LoRA context menu item hidden because IC-LoRA is broken on server
               <MenuItem icon={Sparkles} iconClass="text-amber-400" label="IC-LoRA / Style Transfer"
                 onClick={() => { setIcLoraSourceClipId(contextClip.id); setShowICLoraPanel(true); close() }} />
@@ -533,7 +535,7 @@ function SingleClipMenu({
             <MenuItem
               icon={Film}
               iconClass="text-emerald-400"
-              label="Create Video (A2V)"
+              label="New Storyboard Cut (Audio)"
               onClick={() => { onCreateVideoFromAudio(contextClip); close() }}
             />
           )}
@@ -547,7 +549,7 @@ function SingleClipMenu({
                 <ChevronRight className="h-3 w-3 text-zinc-500" />
               </button>
               <div className="absolute left-full top-0 ml-0.5 min-w-[200px] bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl py-1 z-[70] hidden group-hover/capture:block">
-                <MenuItem icon={Video} iconClass="text-blue-400" label="Generate Video in Gen Space"
+                <MenuItem icon={Video} iconClass="text-blue-400" label="New Storyboard Cut"
                   onClick={() => { onCaptureFrameForVideo(contextClip); close() }} />
                 {isImage && (
                   <MenuItem icon={Film} iconClass="text-blue-400" label="Image to Video (I2V)"

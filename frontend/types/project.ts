@@ -45,6 +45,9 @@ export interface Asset {
   takes?: AssetTake[] // All takes (index 0 = original). If undefined, the asset itself is the only take.
   activeTakeIndex?: number // Which take is currently active (default = 0 / latest)
   colorLabel?: string // Color label for organization (e.g. 'violet', 'blue', 'green', 'yellow', 'red', 'rose', 'orange', 'mango')
+  // Storyboard link: set on assets that mirror a Video Director cut's selected video
+  storyboardCutId?: string
+  storyboardSource?: string // Director-side path of the video this asset was copied from
 }
 
 export interface Track {
@@ -387,6 +390,8 @@ export interface TimelineClip {
   letterbox?: LetterboxSettings
   // Text overlay
   textStyle?: TextOverlayStyle
+  // Storyboard link: clips placed by the storyboard sync carry their Director cut id
+  storyboardCutId?: string
 }
 
 export interface Timeline {
@@ -407,10 +412,14 @@ export interface Project {
   thumbnail?: string
   timelines: Timeline[]
   activeTimelineId?: string
+  // Video Director link: folder name of the Director project driving the storyboard
+  directorProject?: string
+  // The timeline the storyboard populates (defaults to the first timeline)
+  storyboardTimelineId?: string
 }
 
 export type ViewType = 'home' | 'project' | 'playground'
-export type ProjectTab = 'gen-space' | 'video-editor'
+export type ProjectTab = 'storyboard' | 'video-editor'
 
 // Default tracks for new timelines
 export const DEFAULT_TRACKS: Track[] = [

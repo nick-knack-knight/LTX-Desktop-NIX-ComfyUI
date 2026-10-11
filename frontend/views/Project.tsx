@@ -1,13 +1,25 @@
-import { ArrowLeft, Sparkles, Film } from 'lucide-react'
+import { useCallback } from 'react'
+import { ArrowLeft, LayoutGrid, Film } from 'lucide-react'
 import { useProjects } from '../contexts/ProjectContext'
+import { StoryboardProvider } from '../contexts/StoryboardContext'
 import { LtxLogo } from '../components/LtxLogo'
 import { Button } from '../components/ui/button'
-import { GenSpace } from './GenSpace'
+import { Storyboard } from './Storyboard'
 import { VideoEditor } from './VideoEditor'
 import type { ProjectTab } from '../types/project'
 
 export function Project() {
-  const { currentProject, currentTab, setCurrentTab, goHome } = useProjects()
+  const { currentProject, currentTab, setCurrentTab, goHome, updateProjectLinks } = useProjects()
+  const projectId = currentProject?.id
+  const firstTimelineId = currentProject?.timelines?.[0]?.id
+
+  const handleLinkChange = useCallback((name: string | null) => {
+    if (!projectId) return
+    updateProjectLinks(projectId, {
+      directorProject: name ?? undefined,
+      ...(name && !currentProject?.storyboardTimelineId ? { storyboardTimelineId: firstTimelineId } : {}),
+    })
+  }, [projectId, firstTimelineId, currentProject?.storyboardTimelineId, updateProjectLinks])
   
   if (!currentProject) {
     return (
@@ -21,11 +33,12 @@ export function Project() {
   }
   
   const tabs: { id: ProjectTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'gen-space', label: 'Gen Space', icon: <Sparkles className="h-4 w-4" /> },
+    { id: 'storyboard', label: 'Storyboard', icon: <LayoutGrid className="h-4 w-4" /> },
     { id: 'video-editor', label: 'Video Editor', icon: <Film className="h-4 w-4" /> },
   ]
   
   return (
+    <StoryboardProvider linkedProject={currentProject.directorProject ?? null} onLinkChange={handleLinkChange}>
     <div className="h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="flex items-center px-4 py-3 border-b border-zinc-800">
@@ -68,13 +81,14 @@ export function Project() {
       
       {/* Main Content - both views stay mounted to preserve state */}
       <main className="flex-1 overflow-hidden relative">
-        <div className={`absolute inset-0 ${currentTab === 'gen-space' ? '' : 'invisible pointer-events-none'}`}>
-          <GenSpace />
+        <div className={`absolute inset-0 ${currentTab === 'storyboard' ? '' : 'invisible pointer-events-none'}`}>
+          <Storyboard />
         </div>
         <div className={`absolute inset-0 ${currentTab === 'video-editor' ? '' : 'invisible pointer-events-none'}`}>
           <VideoEditor />
         </div>
       </main>
     </div>
+    </StoryboardProvider>
   )
 }

@@ -51,6 +51,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('copy-to-project-assets', srcPath, projectId),
   getProjectAssetsPath: (): Promise<string> =>
     ipcRenderer.invoke('get-project-assets-path'),
+  downloadToProjectAssets: (url: string, projectId: string, fileName: string): Promise<{ success: boolean; path?: string; url?: string; error?: string }> =>
+    ipcRenderer.invoke('download-to-project-assets', url, projectId, fileName),
   setProjectAssetsPath: (newPath: string): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('set-project-assets-path', newPath),
 
@@ -150,6 +152,7 @@ declare global {
       getDownloadsPath: () => Promise<string>
       copyToProjectAssets: (srcPath: string, projectId: string) => Promise<{ success: boolean; path?: string; url?: string; error?: string }>
       getProjectAssetsPath: () => Promise<string>
+      downloadToProjectAssets: (url: string, projectId: string, fileName: string) => Promise<{ success: boolean; path?: string; url?: string; error?: string }>
       setProjectAssetsPath: (newPath: string) => Promise<{ success: boolean; error?: string }>
       showSaveDialog: (options: { title?: string; defaultPath?: string; filters?: { name: string; extensions: string[] }[] }) => Promise<string | null>
       saveFile: (filePath: string, data: string, encoding?: string) => Promise<{ success: boolean; path?: string; error?: string }>

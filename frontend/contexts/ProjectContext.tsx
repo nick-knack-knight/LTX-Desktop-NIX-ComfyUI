@@ -18,6 +18,7 @@ interface ProjectContextType {
   createProject: (name: string) => Project
   deleteProject: (id: string) => void
   renameProject: (id: string, name: string) => void
+  updateProjectLinks: (id: string, links: Partial<Pick<Project, 'directorProject' | 'storyboardTimelineId'>>) => void
   
   // Assets
   addAsset: (projectId: string, asset: Omit<Asset, 'id' | 'createdAt'>) => Asset
@@ -152,7 +153,7 @@ function loadProjectsFromStorage(): Project[] {
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [currentView, setCurrentView] = useState<ViewType>('home')
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
-  const [currentTab, setCurrentTab] = useState<ProjectTab>('gen-space')
+  const [currentTab, setCurrentTab] = useState<ProjectTab>('storyboard')
   const [genSpaceEditImageUrl, setGenSpaceEditImageUrl] = useState<string | null>(null)
   const [genSpaceEditMode, setGenSpaceEditMode] = useState<'image' | 'video' | null>(null)
   const [genSpaceAudioUrl, setGenSpaceAudioUrl] = useState<string | null>(null)
@@ -208,6 +209,12 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const renameProject = useCallback((id: string, name: string) => {
     setProjects(prev => prev.map(p => 
       p.id === id ? { ...p, name, updatedAt: Date.now() } : p
+    ))
+  }, [])
+
+  const updateProjectLinks = useCallback((id: string, links: Partial<Pick<Project, 'directorProject' | 'storyboardTimelineId'>>) => {
+    setProjects(prev => prev.map(p =>
+      p.id === id ? { ...p, ...links, updatedAt: Date.now() } : p
     ))
   }, [])
 
@@ -462,7 +469,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const openProject = useCallback((id: string) => {
     setCurrentProjectId(id)
     setCurrentView('project')
-    setCurrentTab('gen-space')
+    setCurrentTab('storyboard')
   }, [])
   
   const goHome = useCallback(() => {
@@ -487,6 +494,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       createProject,
       deleteProject,
       renameProject,
+      updateProjectLinks,
       addAsset,
       deleteAsset,
       updateAsset,

@@ -184,6 +184,37 @@ export function registerFileHandlers(): void {
     }
   })
 
+  // Download a storyboard (Video Director) file into the project assets folder so the
+  // timeline gets a stable local file that ffmpeg export can read. Only local servers
+  // are allowed (matches the CSP connect-src). Existing non-empty files are reused.
+  ipcMain.handle('download-to-project-assets', async (_event, url: string, projectId: string, fileName: string) => {
+    try {
+      const parsed = new URL(url)
+      if (!['http:', 'https:'].includes(parsed.protocol) || !['localhost', '127.0.0.1'].includes(parsed.hostname)) {
+        throw new Error(`Only local servers are allowed: ${url}`)
+      }
+      const safeProject = path.basename(projectId)
+      const safeName = path.basename(fileName).replace(/[^\w.-]/g, '_')
+      if (!safeProject || !safeName) throw new Error('Invalid project or file name')
+      const destDir = path.join(getProjectAssetsPath(), safeProject, 'storyboard')
+      fs.mkdirSync(destDir, { recursive: true })
+      const destPath = path.join(destDir, safeName)
+      if (!(fs.existsSync(destPath) && fs.statSync(destPath).size > 0)) {
+        const resp = await fetch(url)
+        if (!resp.ok) throw new Error(`HTTP ${resp.status} fetching ${url}`)
+        const tmpPath = `${destPath}.part`
+        fs.writeFileSync(tmpPath, Buffer.from(await resp.arrayBuffer()))
+        fs.renameSync(tmpPath, destPath)
+      }
+      const normalized = destPath.replace(/\\/g, '/')
+      const fileUrl = normalized.startsWith('/') ? `file://${normalized}` : `file:///${normalized}`
+      return { success: true, path: destPath, url: fileUrl }
+    } catch (error) {
+      logger.error(`Error downloading to project assets: ${error}`)
+      return { success: false, error: String(error) }
+    }
+  })
+
   ipcMain.handle('get-project-assets-path', async () => {
     return getProjectAssetsPath()
   })
