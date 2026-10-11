@@ -7,20 +7,27 @@ timeline in step with it.
 
 ## Setup
 
-1. Start the Video Director backend (it is a separate server).
-2. Open a project → **Storyboard** → enter the Director server URL (default
-   `http://127.0.0.1:8001`) → **Connect**.
+1. Start the Video Director backend. It's a separate server: `uvicorn main:app --port 8000`
+   from its `backend/` folder. Projects live in `$PROJECTS_ROOT`
+   (default `~/ai-video-projects`), and workflows live in its `backend/workflows/`.
+2. Open a project → **Storyboard** → check the Director server URL (default
+   `http://127.0.0.1:8000`) → **Connect**. LTX's own backend uses a random port, so the two
+   don't clash.
 3. Create a new Director project or link an existing one.
+4. Click the **ComfyUI** chip in the toolbar to set or test the ComfyUI host. It's the
+   address as seen from the Director backend. The same dialog lists the available
+   workflows and has a **Refresh** button.
 
-The server URL is stored per machine; the link is stored on the LTX project.
+The server URL is stored per machine; the link is stored on the LTX project. The Director
+already enables CORS, so packaged builds work too.
 
-**Packaged builds:** the renderer loads from `file://`, so the Director backend must allow
-CORS (dev builds run with `webSecurity` off and don't need it). In the Director's FastAPI app:
+**Source images:** **Project images** lists the project's `source_images/` folder.
+**Upload…** copies a file from this computer into that folder. **Browse disk** picks a file
+anywhere on the Director host, by absolute path.
 
-```py
-from fastapi.middleware.cors import CORSMiddleware
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-```
+**Takes:** the gallery also shows renders that are on disk but missing from
+`project.json`, for example ones that finished after a backend restart. **Import Video…**
+copies any video file into the cut.
 
 ## How the sync works
 

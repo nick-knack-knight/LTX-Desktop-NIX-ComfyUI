@@ -7,7 +7,7 @@ import {
   DirectorApi, directorFolderName, errorText, loadDirectorServerUrl, normalizeServerUrl, saveDirectorServerUrl,
 } from '../lib/director-api'
 import type {
-  DirectorConnection, DirectorCut, DirectorJob, DirectorProject, DirectorProjectSummary, DirectorWorkflowInfo,
+  ComfyStatus, DirectorConnection, DirectorCut, DirectorJob, DirectorProject, DirectorProjectSummary, DirectorWorkflowInfo,
 } from '../types/director'
 import { FINISHED_JOB_STATUSES } from '../types/director'
 import { logger } from '../lib/logger'
@@ -51,7 +51,11 @@ interface StoryboardContextValue {
   moveCut: (sceneId: string, cutId: string, delta: -1 | 1) => void
 
   updateComfyHost: (host: string) => void
-  checkComfy: () => Promise<boolean>
+  comfyStatus: ComfyStatus | null
+  /** Test a ComfyUI host (defaults to the project's); saves it when it answers */
+  checkComfy: (host?: string) => Promise<ComfyStatus | null>
+  refreshWorkflows: () => Promise<void>
+  importVideo: (sceneId: string, cutId: string, srcPath: string) => Promise<string | null>
 
   startGeneration: (sceneId: string, cutId: string) => Promise<void>
   cancelGeneration: (cutId: string) => Promise<void>
@@ -90,6 +94,7 @@ export function StoryboardProvider({ children, linkedProject, onLinkChange }: St
   const [jobs, setJobs] = useState<Record<string, DirectorJob>>({})
   const [activeSceneId, setActiveSceneId] = useState<string | null>(null)
   const [activeCutId, setActiveCutId] = useState<string | null>(null)
+  const [comfyStatus, setComfyStatus] = useState<ComfyStatus | null>(null)
 
   // Bumped whenever the linked project changes so stale async work can bail out
   const sessionRef = useRef(0)
@@ -188,6 +193,7 @@ export function StoryboardProvider({ children, linkedProject, onLinkChange }: St
     setLoading(true)
     setError(null)
     setJobs({})
+    setComfyStatus(null)
     try {
       const proj = await api.getProject(name)
       if (session !== sessionRef.current) return
@@ -351,16 +357,50 @@ export function StoryboardProvider({ children, linkedProject, onLinkChange }: St
     void saveProject()
   }, [mutateProject, saveProject])
 
-  const checkComfy = useCallback(async () => {
-    const host = projectRef.current?.comfyui_host
-    if (!host) return false
+  const checkComfy = useCallback(async (hostOverride?: string) => {
+    const host = hostOverride ?? projectRef.current?.comfyui_host
+    if (!host) return null
+    let status: ComfyStatus
     try {
-      await api.checkComfyUI(host)
-      return true
-    } catch {
-      return false
+      status = await api.checkComfyUI(host)
+    } catch (e) {
+      status = { status: 'disconnected', host, error: errorText(e) }
+    }
+    setComfyStatus(status)
+    // Generation uses the saved host, so keep one that works
+    if (status.status === 'connected' && host !== projectRef.current?.comfyui_host) {
+      mutateProject(p => { p.comfyui_host = host })
+      void saveProject()
+    }
+    return status
+  }, [api, mutateProject, saveProject])
+
+  const refreshWorkflows = useCallback(async () => {
+    try {
+      setWorkflows(await api.listWorkflows())
+    } catch (e) {
+      setError(`Could not load workflows: ${errorText(e)}`)
     }
   }, [api])
+
+  const importVideo = useCallback(async (sceneId: string, cutId: string, srcPath: string) => {
+    if (!projectName) return null
+    try {
+      const { path } = await api.importVideo(projectName, sceneId, cutId, srcPath)
+      // The backend already added it to project.json; mirror it in memory
+      mutateProject(p => {
+        const cut = p.scenes.find(s => s.id === sceneId)?.cuts.find(c => c.id === cutId)
+        if (!cut) return
+        const vids = cut.generated_videos ?? []
+        if (!vids.includes(path)) vids.push(path)
+        cut.generated_videos = vids
+      })
+      return path
+    } catch (e) {
+      setError(`Import failed: ${errorText(e)}`)
+      return null
+    }
+  }, [api, projectName, mutateProject])
 
   const startGeneration = useCallback(async (sceneId: string, cutId: string) => {
     if (!projectName) return
@@ -412,7 +452,7 @@ export function StoryboardProvider({ children, linkedProject, onLinkChange }: St
     activeSceneId, activeCutId, selectScene, selectCut,
     createScene, renameScene, deleteScene,
     addCut, updateCut, deleteCut, moveCut,
-    updateComfyHost, checkComfy,
+    updateComfyHost, comfyStatus, checkComfy, refreshWorkflows, importVideo,
     startGeneration, cancelGeneration, dismissJob, enhancePrompt,
   }
 

@@ -1,29 +1,52 @@
-import { useState } from 'react'
-import { Check, Video, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Check, FolderInput, Video, X } from 'lucide-react'
 import { useStoryboard } from '../../contexts/StoryboardContext'
 import { fileBaseName } from '../../lib/director-api'
 import type { DirectorCut } from '../../types/director'
+import { FileBrowserModal } from './FileBrowserModal'
 
 interface VideoGalleryModalProps {
   cut: DirectorCut
+  sceneId: string
   onSelect: (path: string) => void
   onClose: () => void
 }
 
-/** All takes generated for a cut; picking one makes it the cut's selected video (and its timeline clip). */
-export function VideoGalleryModal({ cut, onSelect, onClose }: VideoGalleryModalProps) {
-  const { api, projectName } = useStoryboard()
-  const videos = [...(cut.generated_videos ?? [])].reverse() // newest first
+/** All takes for a cut; picking one makes it the cut's selected video (and its timeline clip). */
+export function VideoGalleryModal({ cut, sceneId, onSelect, onClose }: VideoGalleryModalProps) {
+  const { api, projectName, importVideo } = useStoryboard()
+  // Renders on disk that project.json doesn't list (e.g. finished after a backend restart)
+  const [diskVideos, setDiskVideos] = useState<string[]>([])
+  const [showImport, setShowImport] = useState(false)
+
+  useEffect(() => {
+    if (!projectName) return
+    api.browseVideos(projectName, sceneId, cut.id)
+      .then(files => setDiskVideos(files.map(f => f.path)))
+      .catch(() => setDiskVideos([]))
+  }, [api, projectName, sceneId, cut.id])
+
+  const known = cut.generated_videos ?? []
+  // Timestamped filenames sort chronologically; newest first
+  const extra = diskVideos.filter(v => !known.includes(v)).sort()
+  const videos = [...known, ...extra].reverse()
   const [focused, setFocused] = useState<string | null>(cut.selected_video ?? videos[0] ?? null)
 
+  const handleImport = async (srcPath: string) => {
+    setShowImport(false)
+    const path = await importVideo(sceneId, cut.id, srcPath)
+    if (path) setFocused(path)
+  }
+
   return (
+    <>
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm" onClick={onClose}>
       <div className="w-[880px] max-w-[92vw] max-h-[85vh] flex flex-col bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-sm font-semibold text-white">
           <Video className="h-4 w-4" />
           <span>Takes for Cut {String(cut.order).padStart(2, '0')}</span>
-          <span className="text-xs font-normal text-zinc-500">{videos.length} generated</span>
+          <span className="text-xs font-normal text-zinc-500">{videos.length} take{videos.length === 1 ? '' : 's'}</span>
           <button className="ml-auto p-1 rounded hover:bg-zinc-800 text-zinc-400" onClick={onClose}><X className="h-4 w-4" /></button>
         </div>
 
@@ -62,6 +85,10 @@ export function VideoGalleryModal({ cut, onSelect, onClose }: VideoGalleryModalP
         </div>
 
         <div className="flex items-center gap-2 px-4 py-2.5 border-t border-zinc-800 bg-zinc-950/60">
+          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
+            onClick={() => setShowImport(true)} title="Copy a video from disk into this cut">
+            <FolderInput className="h-3.5 w-3.5" /> Import Video…
+          </button>
           <span className="flex-1 text-xs text-zinc-500">The selected take is what appears on the Video Editor timeline.</span>
           <button className="px-3 py-1.5 text-xs rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-200" onClick={onClose}>Close</button>
           <button className="px-3 py-1.5 text-xs rounded-md bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40"
@@ -71,5 +98,9 @@ export function VideoGalleryModal({ cut, onSelect, onClose }: VideoGalleryModalP
         </div>
       </div>
     </div>
+    {showImport && (
+      <FileBrowserModal kind="video" onSelect={p => void handleImport(p)} onClose={() => setShowImport(false)} />
+    )}
+    </>
   )
 }

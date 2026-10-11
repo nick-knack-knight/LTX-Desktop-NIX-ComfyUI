@@ -2,12 +2,12 @@
 // The Director runs as its own local server; its base URL is user-configurable.
 
 import type {
-  DirectorCut, DirectorJob, DirectorProject, DirectorProjectSummary, DirectorScene,
-  DirectorWorkflowInfo, FsBrowseResult,
+  ComfyStatus, DirectorCut, DirectorJob, DirectorProject, DirectorProjectSummary, DirectorScene,
+  DirectorWorkflowInfo, FsBrowseResult, ProjectFile,
 } from '../types/director'
 
 const SERVER_URL_KEY = 'ltx-director-server-url'
-export const DEFAULT_DIRECTOR_SERVER_URL = 'http://127.0.0.1:8001'
+export const DEFAULT_DIRECTOR_SERVER_URL = 'http://127.0.0.1:8000'
 
 export function loadDirectorServerUrl(): string {
   try {
@@ -109,9 +109,26 @@ export class DirectorApi {
   fileUrl = (project: string, path: string) =>
     this.url(`/projects/${this.p(project)}/file`, { path })
   fsBrowse = (path: string | null) => this.request<FsBrowseResult>('GET', '/fs/browse', { query: { path } })
+  /** Images in the project's source_images/ folder (paths are project-relative) */
+  browseImages = (project: string, subpath = '') =>
+    this.request<ProjectFile[]>('GET', `/projects/${this.p(project)}/images`, { query: { subpath } })
+  /** Video files on disk in a cut's folder, including renders missing from project.json */
+  browseVideos = (project: string, sceneId: string, cutId: string) =>
+    this.request<ProjectFile[]>('GET', `/projects/${this.p(project)}/videos`, { query: { scene_id: sceneId, cut_id: cutId } })
+  uploadImage = (project: string, sceneId: string, file: Blob, filename: string) => {
+    const fd = new FormData()
+    fd.append('file', file, filename)
+    return this.request<{ path: string }>('POST', `/projects/${this.p(project)}/upload-image`, { query: { scene_id: sceneId }, body: fd })
+  }
+  /** Copy a video from the Director host's disk into the cut's folder (adds it to generated_videos) */
+  importVideo = (project: string, sceneId: string, cutId: string, srcPath: string) =>
+    this.request<{ path: string }>('POST', `/projects/${this.p(project)}/import-video`, {
+      query: { scene_id: sceneId, cut_id: cutId }, json: { src_path: srcPath },
+    })
 
   // ── ComfyUI / jobs ──────────────────────────────────────────────────────────
-  checkComfyUI = (host: string) => this.request<unknown>('GET', '/comfyui/workflows', { query: { comfyui_host: host } })
+  // Always 200; the payload's status says whether ComfyUI answered
+  checkComfyUI = (host: string) => this.request<ComfyStatus>('GET', '/comfyui/status', { query: { comfyui_host: host } })
   enhancePrompt = (data: { project_name: string; scene_id: string; cut_id: string; workflow: string }) =>
     this.request<{ enhanced_prompt?: string | null }>('POST', '/comfyui/enhance-prompt', { json: data })
   generateVideo = (data: { project_name: string; scene_id: string; cut_id: string }) =>

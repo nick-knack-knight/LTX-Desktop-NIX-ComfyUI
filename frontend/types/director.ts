@@ -26,12 +26,14 @@ export interface DirectorCut {
 export interface DirectorScene {
   id: string
   name: string
+  order?: number
   cuts: DirectorCut[]
   [key: string]: unknown
 }
 
 export interface DirectorProject {
   project_name?: string
+  created_at?: string
   scenes: DirectorScene[]
   workflows: string[]
   comfyui_host?: string
@@ -90,3 +92,17 @@ export interface FsBrowseResult {
 }
 
 export type DirectorConnection = 'unknown' | 'connected' | 'disconnected'
+
+export interface ProjectFile {
+  name: string
+  path: string
+  size?: number
+  is_dir?: boolean
+}
+
+export interface ComfyStatus {
+  status: 'connected' | 'disconnected'
+  host: string
+  devices?: string[]
+  error?: string
+}

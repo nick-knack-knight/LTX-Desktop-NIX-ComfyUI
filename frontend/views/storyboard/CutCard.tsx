@@ -314,13 +314,18 @@ export function CutCard({ cut, sceneId, isActive, isFirst, isLast }: CutCardProp
       </div>
 
       {showImageBrowser && (
-        <FileBrowserModal kind="image"
+        <FileBrowserModal kind="image" sceneId={sceneId}
           onSelect={p => { update({ source_image: p }); setShowImageBrowser(false); save() }}
           onClose={() => setShowImageBrowser(false)} />
       )}
       {showVideoGallery && (
-        <VideoGalleryModal cut={cut}
-          onSelect={p => { update({ selected_video: p }); setShowVideoGallery(false); save() }}
+        <VideoGalleryModal cut={cut} sceneId={sceneId}
+          onSelect={p => {
+            const known = cut.generated_videos ?? []
+            update({ selected_video: p, generated_videos: known.includes(p) ? known : [...known, p] })
+            setShowVideoGallery(false)
+            save()
+          }}
           onClose={() => setShowVideoGallery(false)} />
       )}
       {showAudioBrowser && (

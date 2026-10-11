@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, Check, Clapperboard, Link2, Loader2, Plus, RefreshCw, Server, Trash2, Unlink, X,
+  AlertTriangle, Check, Clapperboard, Link2, Loader2, Plus, RefreshCw, Server, Settings, Trash2, Unlink, X,
 } from 'lucide-react'
 import { useProjects } from '../contexts/ProjectContext'
 import { useStoryboard } from '../contexts/StoryboardContext'
 import { directorFolderName } from '../lib/director-api'
 import { orderedSlots } from '../lib/storyboard-timeline'
 import { CutCard } from './storyboard/CutCard'
+import { StoryboardSettingsModal } from './storyboard/StoryboardSettingsModal'
 
 function ConnectionSetup() {
   const { currentProject } = useProjects()
@@ -39,7 +40,7 @@ function ConnectionSetup() {
             <input className="flex-1 rounded-md bg-zinc-950 border border-zinc-800 px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
               value={urlDraft} onChange={e => setUrlDraft(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') setServerUrl(urlDraft) }}
-              placeholder="http://127.0.0.1:8001" />
+              placeholder="http://127.0.0.1:8000" />
             <button className="px-3 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-sm text-white"
               onClick={() => { if (urlDraft !== serverUrl) setServerUrl(urlDraft); else void refreshConnection() }}>
               Connect
@@ -94,28 +95,32 @@ function ConnectionSetup() {
   )
 }
 
-function ComfyHostField() {
-  const { project, updateComfyHost, checkComfy } = useStoryboard()
-  const [draft, setDraft] = useState(project?.comfyui_host ?? '')
-  const [status, setStatus] = useState<'unknown' | 'ok' | 'down' | 'checking'>('unknown')
+/** ComfyUI status chip; opens the settings modal. Checks the saved host when a project opens. */
+function ComfyStatusChip() {
+  const { project, projectName, comfyStatus, checkComfy } = useStoryboard()
+  const [open, setOpen] = useState(false)
+  const hasProject = !!project
 
-  useEffect(() => { setDraft(project?.comfyui_host ?? '') }, [project?.comfyui_host])
+  useEffect(() => {
+    if (hasProject) void checkComfy()
+  }, [projectName, hasProject]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const check = async () => {
-    setStatus('checking')
-    setStatus((await checkComfy()) ? 'ok' : 'down')
-  }
-
-  const dot = status === 'ok' ? 'bg-green-400' : status === 'down' ? 'bg-red-400' : status === 'checking' ? 'bg-amber-400 animate-pulse' : 'bg-zinc-600'
+  const dot = comfyStatus?.status === 'connected' ? 'bg-green-400' : comfyStatus?.status === 'disconnected' ? 'bg-red-400' : 'bg-zinc-600'
+  const label = comfyStatus?.status === 'connected'
+    ? comfyStatus.devices?.[0] ?? 'connected'
+    : comfyStatus?.status === 'disconnected' ? 'not reachable' : 'checking…'
   return (
-    <div className="flex items-center gap-1.5">
-      <span className={`h-2 w-2 rounded-full ${dot}`} title={`ComfyUI: ${status}`} />
-      <span className="text-[11px] text-zinc-500">ComfyUI</span>
-      <input className="w-56 rounded-md bg-zinc-950 border border-zinc-800 px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-500"
-        value={draft} onChange={e => setDraft(e.target.value)} placeholder="http://127.0.0.1:8188"
-        onBlur={() => { if (draft !== (project?.comfyui_host ?? '')) { updateComfyHost(draft); setStatus('unknown') } }} />
-      <button className="px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-[11px] text-zinc-200" onClick={() => void check()}>Check</button>
-    </div>
+    <>
+      <button className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-zinc-800 text-[11px] text-zinc-400 hover:text-white"
+        title={`ComfyUI at ${project?.comfyui_host || '(not set)'}${comfyStatus?.error ? ` — ${comfyStatus.error}` : ''}`}
+        onClick={() => setOpen(true)}>
+        <span className={`h-2 w-2 rounded-full ${dot}`} />
+        <span>ComfyUI</span>
+        <span className="text-zinc-500 max-w-[220px] truncate">{label}</span>
+        <Settings className="h-3.5 w-3.5 ml-0.5" />
+      </button>
+      {open && <StoryboardSettingsModal onClose={() => setOpen(false)} />}
+    </>
   )
 }
 
@@ -240,7 +245,7 @@ export function Storyboard() {
           <span className="font-medium">{project.project_name ?? projectName}</span>
           {saving && <span className="text-[11px] text-zinc-500 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> saving</span>}
         </div>
-        <ComfyHostField />
+        <ComfyStatusChip />
         <div className="ml-auto flex items-center gap-1">
           <button className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white" title="Reload from Director" onClick={() => void reloadProject()}>
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
