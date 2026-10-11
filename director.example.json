@@ -1,0 +1,7 @@
+{
+  "dir": "~/ai-video-director",
+  "python": "",
+  "port": 8000,
+  "projectsRoot": "~/ai-video-projects",
+  "comfyuiHost": "http://127.0.0.1:8188"
+}

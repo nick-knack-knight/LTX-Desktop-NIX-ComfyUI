@@ -7,7 +7,8 @@ import type {
 } from '../types/director'
 
 const SERVER_URL_KEY = 'ltx-director-server-url'
-export const DEFAULT_DIRECTOR_SERVER_URL = 'http://127.0.0.1:8000'
+// `pnpm dev:all` passes the port it started the Director on
+export const DEFAULT_DIRECTOR_SERVER_URL: string = import.meta.env.VITE_DIRECTOR_URL || 'http://127.0.0.1:8000'
 
 export function loadDirectorServerUrl(): string {
   try {

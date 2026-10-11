@@ -7,14 +7,41 @@ timeline in step with it.
 
 ## Setup
 
-1. Start the Video Director backend. It's a separate server: `uvicorn main:app --port 8000`
-   from its `backend/` folder. Projects live in `$PROJECTS_ROOT`
-   (default `~/ai-video-projects`), and workflows live in its `backend/workflows/`.
+**One-command launch:** copy `director.example.json` to `director.local.json` (gitignored)
+and set `dir` to your AI Video Director folder. You can point it at the repo root or its
+`backend/`. Then:
+
+```sh
+pnpm dev:all                     # starts the Director, waits for it, runs `pnpm dev`
+pnpm dev:all -- pnpm dev:debug   # same, but with any other app command
+```
+
+- **Python:** the launcher looks for a `.venv`, `venv` or `env` next to the Director. If it
+  finds none, it uses the system `python3`. Set `python` to use a specific interpreter, for
+  example on NixOS.
+- **Projects and ComfyUI:** `projectsRoot` and `comfyuiHost` are passed to the Director as
+  `PROJECTS_ROOT` and `COMFYUI_HOST`.
+- **Env vars:** `DIRECTOR_DIR`, `DIRECTOR_PYTHON`, `DIRECTOR_PORT`, `PROJECTS_ROOT` and
+  `COMFYUI_HOST` override the file.
+- **Port:** the Storyboard tab defaults to the port the launcher used. A URL you entered
+  earlier in the tab takes precedence.
+- **Shutdown:** quitting the app or pressing Ctrl+C stops the Director.
+- **Already running:** if a Director is already answering on the port, the launcher reuses it
+  and leaves it running.
+
+**Manual alternative:**
+
+1. Start the Video Director backend yourself: `uvicorn main:app --port 8000` from its
+   `backend/` folder. Projects live in `$PROJECTS_ROOT` (default `~/ai-video-projects`),
+   and workflows live in its `backend/workflows/`.
 2. Open a project → **Storyboard** → check the Director server URL (default
    `http://127.0.0.1:8000`) → **Connect**. LTX's own backend uses a random port, so the two
    don't clash.
-3. Create a new Director project or link an existing one.
-4. Click the **ComfyUI** chip in the toolbar to set or test the ComfyUI host. It's the
+
+**Then, in the app (either way):**
+
+1. Open a project → **Storyboard** → create a new Director project or link an existing one.
+2. Click the **ComfyUI** chip in the toolbar to set or test the ComfyUI host. It's the
    address as seen from the Director backend. The same dialog lists the available
    workflows and has a **Refresh** button.
 

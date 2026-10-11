@@ -23,6 +23,9 @@ backend/**/__pycache__/
 *.egg-info/
 .eggs/
 
+# Local Video Director launcher config (see director.example.json)
+director.local.json
+
 # Claude Code
 .claude/
 
