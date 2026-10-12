@@ -5,7 +5,55 @@ backend, which owns the storyboard data (`project.json`) and runs generations on
 LTX Desktop links each LTX project to one Director project and keeps the Video Editor
 timeline in step with it.
 
-## Setup
+## Quick start
+
+You need `node` 18+, `pnpm`, `uv` and `git`, plus an existing AI Video Director install
+that already runs.
+
+```sh
+# 1. Get this repo on the Storyboard branch
+git clone https://github.com/nick-knack-knight/LTX-Desktop-NIX-ComfyUI.git
+cd LTX-Desktop-NIX-ComfyUI
+git checkout claude/quirky-ptolemy-08lbbd
+
+# 2. Install dependencies (Node packages + LTX backend venv). The script is plain bash and
+#    also works on Linux. The venv is large because pyproject.toml still lists torch.
+pnpm setup:dev:mac
+
+# 3. Point at your Director install
+cp director.example.json director.local.json
+#    then edit director.local.json (see below)
+
+# 4. Run everything
+pnpm dev:all
+```
+
+Example `director.local.json`:
+
+```json
+{
+  "dir": "~/ai-video-director",
+  "python": "",
+  "port": 8000,
+  "projectsRoot": "~/ai-video-projects",
+  "comfyuiHost": "http://127.0.0.1:8188"
+}
+```
+
+- `dir`: the Director folder, either the repo root or its `backend/` folder that holds
+  `main.py`.
+- `python`: leave it empty if the Director has a `.venv`, `venv` or `env` folder next to
+  `main.py` or one level up. Otherwise give the full path to the Python that has its
+  packages installed (fastapi, uvicorn, httpx, websockets, python-multipart).
+- `projectsRoot`: where your existing Director projects live. Use the same folder the
+  Director normally uses; the default is `~/ai-video-projects`.
+- `comfyuiHost`: used only for projects created from now on. Existing projects keep the
+  host saved in their `project.json`.
+
+When the window opens: open or create a project → **Storyboard** tab → **Link** your
+Director project (or **Create & Link**) → **Video Editor** to see the cuts on the timeline.
+
+## Setup details
 
 **One-command launch:** copy `director.example.json` to `director.local.json` (gitignored)
 and set `dir` to your AI Video Director folder. You can point it at the repo root or its
